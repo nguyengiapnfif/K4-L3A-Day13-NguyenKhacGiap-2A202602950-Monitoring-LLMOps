@@ -9,7 +9,7 @@
 - **Lớp:** K4-L3A
 - **Repository URL: https://github.com/nguyengiapnfif/K4-L3A-Day13-NguyenKhacGiap-2A202602950-Monitoring-LLMOps**
 - **Commit SHA cuối:**
-- **Challenge ID:**
+- **Challenge ID:** `day13-k4-l3a-monitoring-llmops-v1`
 - **Tên project Langfuse cá nhân:** `day13-k4-l3a-2a202602950`
 
 ## 2. Evidence index
@@ -18,9 +18,9 @@
 
 | Evidence | Đường dẫn |
 |---|---|
-| Pytest cuối | `evidence/01-pytest.png` |
-| Log validator | `evidence/02-log-validator.png` |
-| Dashboard validator | `evidence/03-dashboard-validator.png` |
+| Pytest cuối | `evidence/01-pytest.txt` |
+| Log validator | `evidence/02-log-validator.txt` |
+| Dashboard validator | `evidence/03-dashboard-validator.txt` |
 | Structured log | `evidence/04-structured-log.png` |
 | PII redaction | `evidence/05a-pii-input.png` (input có PII giả), `evidence/05b-pii-redacted-log.png` (log `req-b8eb9b9a` đã che) |
 | Trace list | `evidence/06-trace-list.png` |
@@ -29,23 +29,23 @@
 | Prompt versions | `evidence/09a-prompt-versions.png` (v1 `production`+`baseline`, v2 `candidate`), `evidence/09b-trace-candidate-prompt-v2.png` (trace `90656b4387ef46932083d93eb8fcda6b` gắn v2) |
 | Prompt rollback | `evidence/10a-prompt-production-v1-before.png` (trước), `evidence/10b-prompt-production-v2-promoted.png` (sau promote), `evidence/10c-prompt-production-v1-rollback.png` (sau rollback) |
 | Dashboard runtime | `evidence/11a-dashboard-latency-traffic-errors-cost.png`, `evidence/11b-dashboard-errors-cost-tokens-quality.png` |
-| Incident metric | `evidence/12-incident-metric.png` |
-| Incident log | `evidence/13-incident-log.png` |
-| Incident trace | `evidence/14-incident-trace.png` |
+| Incident metric | `evidence/12-incident-metric.png` (panel Latency, 17:48–17:51) |
+| Incident log | `evidence/13-incident-log.png` (`req-dbf86fb5`) |
+| Incident trace | `evidence/14-incident-trace.png` (trace `16ed82dbe5dc7ef634b6d9329a35815a`) |
 
 ## 3. Kết quả kỹ thuật
 
 | Nội dung | Baseline | Kết quả cuối | Nhận xét |
 |---|---|---|---|
-| `validate_logs.py` | 30/100 | 100/100 | Baseline: 20/21 bản ghi thiếu `correlation_id` và context, 0 correlation ID. Sau CP1: 21 bản ghi, 10 correlation ID, không thiếu field. |
-| `validate_dashboard.py` | 6/6 | 6/6 | Validator chỉ kiểm tra contract YAML; dashboard runtime làm ở CP2. |
-| `pytest` | 22 passed | 39 passed | Thêm test cho PII (CCCD, thẻ, hộ chiếu), correlation ID/enrichment và cấu trúc trace. |
-| Số traces hợp lệ | 0 | 10 | Baseline có 10 traces nhưng `correlation_id=MISSING` nên không nối được với log. Sau CP1: session `s01`–`s10`, đủ root/retrieval/generation. |
+| `validate_logs.py` | 30/100 | 100/100 | Baseline: 20/21 bản ghi thiếu `correlation_id` và context, 0 correlation ID. Cuối: 119 bản ghi (gồm cả đợt challenge), 53 correlation ID, không thiếu field, 0 PII. |
+| `validate_dashboard.py` | 6/6 | 6/6 | Validator chỉ kiểm tra contract YAML; dashboard runtime xem `evidence/11a`, `11b`. |
+| `pytest` | 22 passed | 42 passed | Thêm test cho PII (CCCD, thẻ, hộ chiếu), correlation ID/enrichment, cấu trúc trace và phép tính dashboard. |
+| Số traces hợp lệ | 0 | ≥ 10 | Baseline có 10 traces nhưng `correlation_id=MISSING` nên không nối được với log. Cuối: session `s01`–`s10` (15:44), `s11`, 4 trace prompt versioning và 5 trace challenge, đều có root/retrieval/generation và `correlation_id` thật. |
 | Số PII leak | 0 | 0 | Baseline đã 0 vì `summarize_text` scrub preview; sau CP1 scrub mọi field của log. Trace: input/output được scrub và có hook `mask_otel_spans`. |
 | Latency P95 / TTFT P95 | 583 ms / 50 ms | 615 ms / 50 ms | P95 bị kéo lên bởi request đầu tiên (fetch prompt từ Langfuse, sau đó cache 60s); P50 là 255/259 ms. Tính từ `latency_ms`, `ttft_ms` trong log, 10 request mỗi lần. |
 | Retrieval success rate | 100% (10/10) | 100% (10/10) | Chưa bật incident. |
 
-_Cột "Kết quả cuối" hiện là số đo sau CP1 (15:44 ngày 29/09/2026, giờ Việt Nam); cần chạy lại trên commit cuối trước khi nộp._
+_Tests và hai validator chạy lại trên commit cuối (output trong `evidence/01`–`03`). Latency và retrieval success ở cột "Kết quả cuối" là số đo của đợt tải bình thường sau CP1 (15:44, 10 request); số đo trong lúc sự cố nằm ở mục 7._
 
 ## 4. Logging và PII
 
@@ -77,24 +77,38 @@ _Cột "Kết quả cuối" hiện là số đo sau CP1 (15:44 ngày 29/09/2026,
 
 ## 7. Điều tra challenge
 
-- **Challenge ID:**
-- **Khoảng thời gian điều tra:**
-- **Triệu chứng từ metrics:**
-- **Log line và correlation ID liên quan:**
-- **Trace ID và span gây ảnh hưởng:**
-- **Root cause:**
-- **Fix action:**
-- **Preventive measure:**
+- **Challenge ID:** `day13-k4-l3a-monitoring-llmops-v1` (cohort K4, file `config/challenge.json` không commit).
+- **Khoảng thời gian điều tra:** 29/09/2026, giờ Việt Nam. 17:48 tải bình thường (10 request); 17:49:01 bật challenge bằng `python scripts/inject_incident.py` rồi chạy `python scripts/load_test.py --challenge --concurrency 5` (5 request, 17:49:02–17:49:15); 17:50:06 tắt incident; 17:51 tải kiểm tra phục hồi (10 request).
+- **Triệu chứng từ metrics:** panel Latency: P50/P95 tăng từ 152/559 ms (17:48) lên 2652/2653 ms (17:49); 5/5 request vượt SLO 1500 ms và vượt ngưỡng 2000 ms của challenge. TTFT P95 giữ nguyên 50 ms, error rate 0%, retrieval success 100%: người dùng bị chậm chứ không bị lỗi, và phần chậm nằm trước bước LLM sinh token. Sau khi tắt incident (17:51) P95 về 154 ms.
+- **Log line và correlation ID liên quan:** cả 5 request challenge (`req-dbf86fb5`, `req-2d553731`, `req-da723dde`, `req-6c6cff8f`, `req-177aaf51`, feature `monitoring`) có `latency_ms` khoảng 2652. Log được chọn:
+  `{"event": "response_sent", "correlation_id": "req-dbf86fb5", "session_id": "k4-l3a-challenge-s03", "feature": "monitoring", "latency_ms": 2653, "ttft_ms": 50, "tool_name": "retrieval", "tool_success": true, "ts": "2026-09-29T10:49:04.814923Z"}`
+- **Trace ID và span gây ảnh hưởng:** trace `16ed82dbe5dc7ef634b6d9329a35815a` (metadata `correlation_id=req-dbf86fb5`): root `lab-agent-run` 2653 ms, trong đó `retrieve-context` 2501 ms (khoảng 94%), `generate-answer` 152 ms (bình thường), không observation nào có level ERROR.
+- **Root cause:** bước retrieval (tra cứu vector store trong `retrieve()`, [app/mock_rag.py](../app/mock_rag.py)) chậm thêm khoảng 2,5 s mỗi request do incident `rag_slow` của challenge. Ba bằng chứng cùng chỉ về một chỗ: metric (latency tăng nhưng TTFT không đổi), log (`tool_success=true` nhưng `latency_ms` khoảng 2,65 s) và trace (span `retrieve-context` chiếm khoảng 94% thời gian). LLM không phải nguyên nhân.
+- **Fix action:** tắt incident (`python scripts/inject_incident.py --disable`) lúc 17:50:06; tải kiểm tra lúc 17:51 cho P95 154 ms, 0 request vượt SLO. Với hệ thống thật: khôi phục hoặc scale vector store và đặt timeout cho retrieval (ví dụ 500 ms), quá hạn thì trả lời bằng fallback docs thay vì bắt người dùng chờ.
+- **Preventive measure:** giữ alert `high_latency_p95` (P95 > 1500 ms trong 5 phút, [docs/alerts.md](../docs/alerts.md#alert-1)) để phát hiện sớm; ghi riêng thời gian retrieval vào structured log để dashboard tách được "retrieval chậm" và "LLM chậm" mà không cần mở trace; thêm timeout/circuit breaker cho vector store và một synthetic check định kỳ đo latency retrieval.
 
 ## 8. Giải thích và tự đánh giá
-
-- **Một quyết định kỹ thuật quan trọng và lý do:**
+- **Một quyết định kỹ thuật quan trọng và lý do:** Hạ ngưỡng SLO từ 3000 ms xuống 1500 ms. Baseline có P99 khoảng 600 ms. Sự cố retrieval chậm làm mỗi request mất khoảng 2,65 s, vẫn dưới 3000 ms nên sẽ bị tính là "tốt". Với ngưỡng 1500 ms, cả 5 request challenge đều bị bắt, và dashboard hiện SLO 80% so với mục tiêu 99,5%.
 - **Một lỗi/blocker đã gặp:**
+  - Gọi API `GET /api/public/traces` bị lỗi **410**, vì org Langfuse tạo sau ngày 16/09/2026 không còn API cũ.
+  - Thêm Streamlit xong thì `uv sync` báo **Access denied**: server uvicorn đang chạy giữ khóa file `websockets\speedups…pyd`, để lại gói cài dở dang.
 - **Cách tìm nguyên nhân và xử lý:**
+  - Lỗi 410: đọc body của lỗi, nó chỉ thẳng sang endpoint mới `/api/public/v2/observations`.
+  - Lỗi khóa file: dùng `tasklist /m` tìm tiến trình đang nạp file đó, tắt server rồi chạy `uv sync --reinstall-package websockets`, kiểm tra lại bằng `uv sync --check`.
 - **Cách hiểu luồng Metrics → Logs → Traces:**
+  - **Metric:** P95 tăng từ 559 lên 2653 ms lúc 17:49, nhưng TTFT vẫn 50 ms, tức phần chậm nằm trước bước LLM.
+  - **Log:** lọc request chậm, lấy được `req-dbf86fb5`.
+  - **Trace:** mở trace cùng ID, thấy `retrieve-context` chiếm 2501 trên tổng 2653 ms.
 - **Vai trò của prompt version, token/cost, SLO hoặc rollback trong vận hành LLM:**
-- **Điều quan trọng nhất đã học:**
+  - Prompt cũng là "code", vì nó thay đổi hành vi của app. Rollback chỉ là chuyển label `production` về version cũ, không cần deploy lại.
+  - Token cho thấy tác động của prompt: v2 dài hơn nên dùng 40 input tokens so với 32 của v1, tức cost tăng theo.
+  - SLO và error budget biến câu hỏi "app có chậm không" thành con số có thể đặt alert và dùng để ưu tiên việc sửa.
+- **Điều quan trọng nhất đã học:** HTTP 200 không có nghĩa là hệ thống ổn. Trong challenge không có lỗi nào (error rate 0%), nhưng mọi request đều chậm gấp khoảng 17 lần. Chỉ percentile latency và trace mới cho thấy điều đó.
 - **Hạn chế hoặc phần chưa hoàn thành, nếu có:**
+  - Dashboard là bản local đọc file log, không phải hệ thống giám sát chạy liên tục.
+  - Alert mới chỉ nằm trong YAML và runbook, chưa nối Slack thật.
+  - `quality_score` chỉ là heuristic, chưa ghi thành score trên Langfuse.
+  - Panel traffic báo vượt ngưỡng vì traffic của lab chỉ gồm vài đợt load test ngắn.
 
 ## 9. Checklist trước khi nộp
 

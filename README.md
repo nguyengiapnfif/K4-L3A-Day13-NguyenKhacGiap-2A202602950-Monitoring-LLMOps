@@ -34,25 +34,23 @@ Sau lab, bạn có thể:
 
 ## Bắt đầu nhanh
 
+Dự án dùng [uv](https://docs.astral.sh/uv/) (dependency khai báo trong `pyproject.toml`, khóa phiên bản trong `uv.lock`). `uv sync` tạo `.venv` và cài đúng các phiên bản đã khóa:
+
 Windows PowerShell:
 
 ```powershell
-python -m venv .venv
-.\.venv\Scripts\Activate.ps1
-python -m pip install --upgrade pip
-pip install -r requirements.txt
+uv sync
 Copy-Item .env.example .env
 ```
 
 macOS/Linux:
 
 ```bash
-python -m venv .venv
-source .venv/bin/activate
-python -m pip install --upgrade pip
-pip install -r requirements.txt
+uv sync
 cp .env.example .env
 ```
+
+Các lệnh bên dưới chạy qua `uv run` (ví dụ `uv run python -m pytest -q`), hoặc activate `.venv` trước rồi gọi trực tiếp.
 
 Tự đăng ký/đăng nhập [Langfuse Cloud](https://cloud.langfuse.com), tạo project riêng tên `day13-k4-l3a-<MSSV>`, rồi vào **Project Settings → API Keys** để tạo key pair. Điền key của chính project đó vào `.env`:
 
@@ -71,16 +69,22 @@ Không chia sẻ key và không chụp màn hình trang hiển thị secret. Xem
 Chạy API ở terminal thứ nhất:
 
 ```bash
-uvicorn app.main:app --reload --env-file .env
+uv run uvicorn app.main:app --reload --env-file .env
 ```
 
 Chạy baseline ở terminal thứ hai:
 
 ```bash
-python scripts/load_test.py
-python scripts/validate_logs.py
-python scripts/validate_dashboard.py
-python -m pytest -q
+uv run python scripts/load_test.py
+uv run python scripts/validate_logs.py
+uv run python scripts/validate_dashboard.py
+uv run python -m pytest -q
+```
+
+Mở dashboard 6 panel (đọc `data/logs.jsonl`, http://localhost:8501) ở terminal thứ ba:
+
+```bash
+uv run streamlit run scripts/dashboard.py
 ```
 
 Baseline log chưa đạt là bình thường vì các `TODO` của CP1 chưa được làm. Ghi lại kết quả baseline vào `submission/REPORT.md` trước khi sửa.
