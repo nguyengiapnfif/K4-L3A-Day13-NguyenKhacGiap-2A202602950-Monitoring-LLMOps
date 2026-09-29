@@ -25,10 +25,10 @@
 | PII redaction | `evidence/05a-pii-input.png` (input có PII giả), `evidence/05b-pii-redacted-log.png` (log `req-b8eb9b9a` đã che) |
 | Trace list | `evidence/06-trace-list.png` |
 | Trace waterfall | `evidence/07-trace-waterfall.png` (trace `4a12c6fdb0048f9cc931bfb7fe915b6f`, log `req-b8eb9b9a`) |
-| Trace metadata | `evidence/08-trace-metadata.png` |
-| Prompt versions | `evidence/09-prompt-versions.png` |
-| Prompt rollback | `evidence/10-prompt-rollback.png` |
-| Dashboard runtime | `evidence/11-dashboard-overview.png` |
+| Trace metadata | `evidence/08a-generation-model-tokens-prompt.png` (generation: model, TTFT, tokens, cost, prompt `day13-chat` v1), `evidence/08b-root-metadata-correlation-prompt.png` (root: `correlation_id`, prompt name/version/label) — trace `0d01e0fbe60d5c416aceff71a8a14ab8` |
+| Prompt versions | `evidence/09a-prompt-versions.png` (v1 `production`+`baseline`, v2 `candidate`), `evidence/09b-trace-candidate-prompt-v2.png` (trace `90656b4387ef46932083d93eb8fcda6b` gắn v2) |
+| Prompt rollback | `evidence/10a-prompt-production-v1-before.png` (trước), `evidence/10b-prompt-production-v2-promoted.png` (sau promote), `evidence/10c-prompt-production-v1-rollback.png` (sau rollback) |
+| Dashboard runtime | `evidence/11a-dashboard-latency-traffic-errors-cost.png`, `evidence/11b-dashboard-errors-cost-tokens-quality.png` |
 | Incident metric | `evidence/12-incident-metric.png` |
 | Incident log | `evidence/13-incident-log.png` |
 | Incident trace | `evidence/14-incident-trace.png` |
@@ -60,17 +60,20 @@ _Cột "Kết quả cuối" hiện là số đo sau CP1 (15:44 ngày 29/09/2026,
 - **Cấu trúc root/retrieval/generation observations:** root `lab-agent-run` (type `agent`, trace name `day13-agent-request`) có input/output là câu hỏi/câu trả lời đã scrub và metadata prompt name/label/version/source. Hai observation con: `retrieve-context` (type `retriever`: query, documents, `matched_topic`, `doc_count`) và `generate-answer` (type `generation`: model `claude-sonnet-4-5`, usage input/output, cost, `completion_start_time` để Langfuse tính TTFT, link tới prompt). `user_id` (hash), `session_id`, `environment`, tags và metadata được gắn cho cả trace qua `propagate_attributes` ([app/agent.py](../app/agent.py), [app/mock_rag.py](../app/mock_rag.py), [app/mock_llm.py](../app/mock_llm.py)).
 - **Cách nối trace với log:** `correlation_id` được ghi vào metadata của trace và có trên cả ba observation. Ví dụ: log `req-5f95670d` ↔ trace `46a7ada66b50d3ba944141197685bcf6`; log `req-b8eb9b9a` ↔ trace `4a12c6fdb0048f9cc931bfb7fe915b6f` (cùng cost `$0.002721` và TTFT 50 ms ở cả log lẫn generation).
 - **Prompt name:** `day13-chat`
-- **Version/label baseline:**
-- **Version/label candidate:**
-- **Trace ID của mỗi version:**
-- **Cách promote và rollback `production`:**
+- **Version/label baseline:** version 1 (labels `baseline`, `production`): giữ nguyên format của template local (`Feature`, `Docs`, `Question`).
+- **Version/label candidate:** version 2 (label `candidate`): thêm dòng `Answer in at most 3 sentences.` để giới hạn độ dài câu trả lời.
+- **Trace ID của mỗi version:** cùng input `How should alerts be designed for an LLM service?` (user `u12`): `LANGFUSE_PROMPT_LABEL=baseline` → trace `0d01e0fbe60d5c416aceff71a8a14ab8` (log `req-313f8c1e`, generation link `day13-chat` v1, 32 input tokens); `LANGFUSE_PROMPT_LABEL=candidate` → trace `90656b4387ef46932083d93eb8fcda6b` (log `req-6bf884df`, generation link `day13-chat` v2, 40 input tokens vì prompt dài hơn). Root metadata của cả hai trace ghi `prompt_source=langfuse`.
+- **Cách promote và rollback `production`:** app luôn fetch prompt theo label (`LANGFUSE_PROMPT_LABEL=production`, cache 60 s), nên promote/rollback chỉ cần chuyển label `production` giữa các version trên Langfuse, không phải deploy lại code. Trước: `production` ở v1 (`evidence/10a-prompt-production-v1-before.png`). Promote: chuyển `production` sang v2 (`evidence/10b-prompt-production-v2-promoted.png`); request với label `production` → trace `8bf197a990020f626ae8783b3cbeb881` (log `req-dd3e87c1`) gắn `day13-chat` v2. Rollback: chuyển `production` về v1 (`evidence/10c-prompt-production-v1-rollback.png`); request sau rollback → trace `5f66293d15dbfa0626014fe6e87de811` (log `req-06ffa0d2`) gắn lại `day13-chat` v1 (32 input tokens, giống baseline).
 
 ## 6. Dashboard, SLO và alerts
 
-- **Dashboard và sáu panel:**
-- **SLO và lý do chọn:**
-- **Cách tính error budget:**
-- **Ba alert và runbook tương ứng:**
+- **Dashboard và sáu panel:** Streamlit ([scripts/dashboard.py](../scripts/dashboard.py), chạy bằng `uv run streamlit run scripts/dashboard.py`) đọc `data/logs.jsonl`. Tên panel, aggregation, đơn vị và ngưỡng lấy trực tiếp từ [config/dashboard.yaml](../config/dashboard.yaml): latency P50/P95/P99 và TTFT P95, traffic, error rate và retrieval success, cost, tokens input/output, quality. Time range 60 phút, tự refresh 30 giây; mỗi panel có đường ngưỡng và trạng thái đạt/vượt; panel latency có thêm đường SLO 1500 ms. Ngưỡng traffic `rate_per_minute ≥ 1` tính trung bình trên 60 phút nên panel báo vượt ngưỡng khi traffic chỉ đến từ các đợt load test ngắn; ngưỡng này dùng để phát hiện traffic sụt trong production.
+- **SLO và lý do chọn:** `fast_successful_requests` trong [config/slo.yaml](../config/slo.yaml): 99,5% request phải trả lời thành công trong ≤ 1500 ms, cửa sổ 28 ngày. Baseline có P50 255 ms và P95/P99 khoảng 580–620 ms; ngưỡng 1500 ms bằng khoảng 2,4 lần P99, đủ biên cho request đầu phải fetch prompt. Ngưỡng gốc 3000 ms không bắt được sự cố `rag_slow` (retrieval +2,5 s, request khoảng 2,7 s), còn 1500 ms thì bắt được.
+- **Cách tính error budget:** error budget = 100% − 99,5% = 0,5% số request trong 28 ngày. Ví dụ với 1.000 request/ngày (28.000 request) thì được phép tối đa 140 request chậm hơn 1500 ms hoặc lỗi; SLI = số `response_sent` có `latency_ms ≤ 1500` chia số `request_received`.
+- **Ba alert và runbook tương ứng:** định nghĩa trong [config/alert_rules.yaml](../config/alert_rules.yaml), runbook trong [docs/alerts.md](../docs/alerts.md); cả ba gửi Slack `#day13-k4-l3a-alerts`, owner Nguyễn Khắc Giáp.
+  - `high_latency_p95` (P2): P95 latency > 1500 ms trong 5 phút; bám SLO; bắt `rag_slow`.
+  - `high_error_rate` (P1): error rate > 2% trong 5 phút; người dùng nhận HTTP 500; bắt `tool_fail`.
+  - `cost_per_request_spike` (P3): cost trung bình > 0,004 USD/request (2 lần baseline) trong 15 phút; bảo vệ ngân sách 2,5 USD/ngày; bắt `cost_spike`.
 
 ## 7. Điều tra challenge
 
