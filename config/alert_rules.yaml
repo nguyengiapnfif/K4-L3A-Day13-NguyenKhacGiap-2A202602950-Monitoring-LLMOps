@@ -1,25 +1,32 @@
 alerts:
-  - name: TODO_alert_1
-    severity: TODO
-    condition: TODO
-    duration: TODO
+  - name: high_latency_p95
+    severity: P2
+    condition: 'p95(latency_ms where event == "response_sent") > 1500'
+    duration: 5m
     type: symptom-based
     channel: slack
-    owner: TODO
+    slack_channel: "#day13-k4-l3a-alerts"
+    owner: Nguyễn Khắc Giáp
+    slo: fast_successful_requests
     runbook: docs/alerts.md#alert-1
-  - name: TODO_alert_2
-    severity: TODO
-    condition: TODO
-    duration: TODO
+  - name: high_error_rate
+    severity: P1
+    condition: 'count(event == "request_failed") / count(event == "request_received") * 100 > 2'
+    duration: 5m
     type: symptom-based
     channel: slack
-    owner: TODO
+    slack_channel: "#day13-k4-l3a-alerts"
+    owner: Nguyễn Khắc Giáp
+    slo: fast_successful_requests
     runbook: docs/alerts.md#alert-2
-  - name: TODO_alert_3
-    severity: TODO
-    condition: TODO
-    duration: TODO
+  - name: cost_per_request_spike
+    severity: P3
+    # Baseline trung bình khoảng 0,002 USD/request; ngưỡng = 2 lần baseline.
+    condition: 'avg(cost_usd where event == "response_sent") > 0.004'
+    duration: 15m
     type: symptom-based
     channel: slack
-    owner: TODO
+    slack_channel: "#day13-k4-l3a-alerts"
+    owner: Nguyễn Khắc Giáp
+    slo: guardrails.daily_cost_usd_max
     runbook: docs/alerts.md#alert-3

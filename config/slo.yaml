@@ -3,11 +3,20 @@ primary_slo:
   name: fast_successful_requests
   window: 28d
   sli:
-    good_event: 'event == "response_sent" and latency_ms <= 3000'
+    # Request "tốt" = trả lời thành công trong tối đa 1500 ms.
+    good_event: 'event == "response_sent" and latency_ms <= 1500'
     total_event: 'event == "request_received"'
+    latency_threshold_ms: 1500
   target_percent: 99.5
   error_budget_percent: 0.5
-  note: Học viên phải giải thích hoặc điều chỉnh ngưỡng bằng baseline của mình.
+  note: >-
+    Baseline ngày 29/09/2026 (10 request, data/logs.baseline.jsonl): P50 255 ms,
+    P95/P99 khoảng 580–620 ms (request đầu tiên chậm hơn vì phải fetch prompt).
+    Ngưỡng 1500 ms bằng khoảng 2,4 lần P99 baseline, đủ biên cho request fetch prompt
+    nhưng vẫn bắt được rag_slow (retrieval +2,5 s, request mất khoảng 2,7 s);
+    ngưỡng cũ 3000 ms không phát hiện được sự cố này.
+    Error budget 0,5% trong 28 ngày: với 1.000 request/ngày (28.000 request)
+    được phép tối đa 140 request chậm hoặc lỗi.
 guardrails:
   error_rate_pct_max: 2
   daily_cost_usd_max: 2.5
